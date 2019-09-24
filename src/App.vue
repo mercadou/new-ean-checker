@@ -2,27 +2,16 @@
   <v-app>
     <h1>Checador de pedidos</h1>
     <div class="container">
-      <div class="">
-        <v-select
-          v-model="selectedUser"
-          :items="$options.users"
-          label="Selecione o separador"
-        ></v-select>
-      </div>
-      <div v-if="selectedUser">
-        <v-select
-          v-model="selectedMarket"
-          :items="$options.markets"
-          label="Selecione o Mercado"
-        ></v-select>
-      </div>
-      <div v-if="selectedUser && !beeping">
-        <v-btn @click="checkInputs" color="success" class="mt-4" rounded
-          >Começar</v-btn
-        >
-      </div>
+      <initial-form
+        :beeping="beeping"
+        :selected-user="selectedUser"
+        :selected-market="selectedMarket"
+        @input-user="selectedUser = $event"
+        @input-market="selectedMarket = $event"
+        @click-start="checkInputs"
+      />
       <div v-if="beeping">
-        <div :class="{ ontop: scrollTop > 150 }">
+        <div ref="ontop" :class="{ ontop: scrollTop > innerHeight }">
           <div v-if="!finished">
             <v-text-field
               v-model="eanInput"
@@ -108,37 +97,13 @@
             >
           </div>
         </div>
-
-        <v-data-table
-          :headers="$options.headers"
-          :items="order"
-          :items-per-page="order.length"
-          class="elevation-12 mt-4"
-          fixed-header
-        >
-          <template v-slot:body>
-            <tbody>
-              <tr
-                v-for="product in order"
-                v-if="
-                  product[$options.amount] !== product[$options.found] &&
-                    selectedUser === product[$options.user]
-                "
-                :class="{ beeping: product[$options.found] > 0 }"
-              >
-                <td
-                  @click="getEanFromTable"
-                  class="ean-table"
-                  v-text="product[$options.ean]"
-                ></td>
-                <td v-text="product[$options.description]"></td>
-                <td v-text="product[$options.category]"></td>
-                <td v-text="product[$options.amount]"></td>
-                <td v-text="product[$options.found]"></td>
-              </tr>
-            </tbody>
-          </template>
-        </v-data-table>
+        <app-table
+          :is-on-top="scrollTop > innerHeight"
+          :margin-top="innerHeight"
+          :order="order"
+          :selected-user="selectedUser"
+          @click-table="getEanFromTable"
+        />
       </div>
     </div>
     <v-snackbar
@@ -156,9 +121,16 @@
 </template>
 
 <script>
+import InitialForm from "./components/InitialForm";
+import AppTable from "./components/AppTable";
 import strings from "./utils/strings";
+
 export default {
   name: "App",
+  components: {
+    AppTable,
+    InitialForm
+  },
   data: () => {
     return {
       eanInput: "",
@@ -180,7 +152,8 @@ export default {
       loading: false,
       scrollTop: 0,
       snackbar: { status: false, message: "" },
-      googleApi: null
+      googleApi: null,
+      innerHeight: 90
     };
   },
 
@@ -198,15 +171,6 @@ export default {
     }
   },
 
-  headers: [
-    { text: strings.ean, sortable: false, value: strings.ean },
-    { text: strings.description, sortable: false, value: strings.description },
-    { text: strings.category, value: strings.category },
-    { text: strings.amount, sortable: false, value: strings.amount },
-    { text: strings.found, sortable: false, value: strings.found }
-  ],
-  markets: ["MR", "Extra", "Atacadão", "Guanabara"],
-  users: ["Maykon", "Jorge"],
   spreadsheet: {
     spreadsheetId: "1fMt8QRD7zVYaDR9pCKUw-ox43B1hNAMWjX_cLOKTUv4",
     name: "Teste"
@@ -300,11 +264,17 @@ export default {
     startEditingEan() {
       this.editingEan = true;
       this.oldEan = "";
+      this.$nextTick(() => {
+        this.innerHeight = this.$refs.ontop.clientHeight;
+      });
     },
 
     addSimilar() {
       this.addingSimilar = true;
       this.oldEan = "";
+      this.$nextTick(() => {
+        this.innerHeight = this.$refs.ontop.clientHeight;
+      });
     },
 
     async changeProductEan() {
@@ -421,6 +391,9 @@ export default {
         window.onbeforeunload = function() {
           return true;
         };
+        this.$nextTick(() => {
+          this.innerHeight = this.$refs.ontop.clientHeight;
+        });
       } catch (error) {
         console.log(error);
       }
@@ -444,8 +417,8 @@ export default {
       }
     },
 
-    getEanFromTable(event) {
-      this.oldEan = event.target.textContent;
+    getEanFromTable(text) {
+      this.oldEan = text;
     },
 
     async checkEanInOrder(ean) {
@@ -549,3 +522,19 @@ export default {
   }
 };
 </script>
+
+<style>
+h1 {
+  text-align: center;
+}
+
+.ontop {
+  position: fixed;
+  background-color: #252525;
+  padding: 10px;
+  width: 100%;
+  top: 0;
+  left: 0;
+  z-index: 3;
+}
+</style>
